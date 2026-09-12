@@ -1,27 +1,45 @@
-import streamlit as st
+import sys
+from pathlib import Path
 import os
 import json
 import time
 import asyncio
-from dotenv import load_dotenv
+import streamlit as st
 from openai import OpenAI
+
+# Ensure root directory is in sys.path so modules resolve correctly on Linux / Streamlit Cloud
+ROOT_DIR = Path(__file__).resolve().parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+# Optional import: load .env locally if available; ignored on cloud deployments
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except (ImportError, ModuleNotFoundError):
+    pass
 
 from modules.terminal_agent import run_sandboxed_code, WORKSPACE_DIR
 from modules.web_agent import search_and_extract
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+st.set_page_config(page_title="AetherOS | Autonomous Agent", page_icon="⚡", layout="wide")
 
-# Retrieve API key from Streamlit secrets (cloud) or environment variables (local)
-api_key = st.secrets.get("GEMINI_API_KEY") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else os.getenv("GEMINI_API_KEY")
+st.title("⚡ AetherOS Production Console")
+st.caption("Deterministic Multi-Agent Engine • Playwright Scraping • AST Sandboxed Execution")
+
+# Check Streamlit Cloud Secrets first, fallback to local environment variables
+api_key = None
+if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    api_key = os.getenv("GEMINI_API_KEY")
 
 client = OpenAI(
     api_key=api_key,
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
+
+# Active Gemini models with operational quotas
 MODEL_TIERS = ["gemini-3.6-flash", "gemini-2.5-flash"]
 
 TOOLS = [
@@ -56,6 +74,7 @@ TOOLS = [
 ]
 
 def request_completion_with_fallback(messages, tools=None):
+    """Executes calls using active models with automatic fallback on rate limits."""
     last_error = None
     for model_name in MODEL_TIERS:
         for attempt in range(2):
@@ -98,10 +117,10 @@ with st.sidebar:
     else:
         st.write("Workspace currently clean.")
 
-# Main Task Input Area
+# User Goal Input Area
 user_goal = st.text_area(
     "Set Autonomous Goal",
-    placeholder="e.g., Search Vishnu Institute of Technology, extract its departments, and save a summary report to the workspace."
+    placeholder="e.g., Research Vishnu Institute of Technology, extract its departments, and save a summary report to the workspace."
 )
 
 start_btn = st.button("🚀 Execute Goal", type="primary", use_container_width=True)
