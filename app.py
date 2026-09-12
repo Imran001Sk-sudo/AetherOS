@@ -9,18 +9,19 @@ from openai import OpenAI
 from modules.terminal_agent import run_sandboxed_code, WORKSPACE_DIR
 from modules.web_agent import search_and_extract
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-st.set_page_config(page_title="AetherOS | Autonomous Agent", page_icon="⚡", layout="wide")
-
-st.title("⚡ AetherOS Production Console")
-st.caption("Deterministic Multi-Agent Engine • Playwright Scraping • AST Sandboxed Execution")
+# Retrieve API key from Streamlit secrets (cloud) or environment variables (local)
+api_key = st.secrets.get("GEMINI_API_KEY") if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets else os.getenv("GEMINI_API_KEY")
 
 client = OpenAI(
-    api_key=os.getenv("GEMINI_API_KEY"),
+    api_key=api_key,
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
-
 MODEL_TIERS = ["gemini-3.6-flash", "gemini-2.5-flash"]
 
 TOOLS = [
